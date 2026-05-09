@@ -1,70 +1,97 @@
-const btn = document.querySelector(".btn")
-const input = document.querySelector(".input")
-const card = document.querySelector('.card')
+const btn = document.querySelector(".btn");
+const input = document.querySelector(".input");
+const card = document.querySelector(".card");
 
-const values= {};
+btn.addEventListener("click", async () => {
 
-btn.addEventListener("click", () => {
-  const username = input.value;
+  const username = input.value.trim();
+
+  if (!username) return;
+
+  const cacheKey = `github_${username}`;
+
   try {
-  fetch(`https://api.github.com/users/${username}`)
-  .then(res => res.json())
-  .then(user => {
-    console.log(user);
 
-      card.innerHTML = 
-   `<img src=${user.avatar_url} alt="">
-      <h3>${user.login}</h3>
-      <p>${user.bio}</p>
+    // =========================
+    // CHECK LOCAL STORAGE
+    // =========================
+    const cachedData = JSON.parse(localStorage.getItem(cacheKey));
 
+    if (cachedData) {
+
+      const currentTime = Date.now();
+      const oneHour = 60 * 60 * 1000;
+
+      // CHECK IF CACHE IS STILL VALID
+      if (currentTime - cachedData.timestamp < oneHour) {
+
+        console.log("Loaded from localStorage");
+
+        renderUser(cachedData.user);
+
+        return;
+      }
+    }
+
+    // =========================
+    // FETCH NEW DATA
+    // =========================
+    const res = await fetch(`https://api.github.com/users/${username}`);
+
+    const user = await res.json();
+
+    if (user.message === "Not Found") {
+      throw new Error("User not found");
+    }
+
+    // =========================
+    // SAVE TO LOCAL STORAGE
+    // =========================
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        user,
+        timestamp: Date.now()
+      })
+    );
+
+    console.log("Fetched from API");
+
+    renderUser(user);
+
+  } catch (error) {
+
+    console.log(error);
+
+    card.innerHTML = `
+      <h2>User Not Found</h2>
+    `;
+  }
+});
+
+
+// =========================
+// RENDER FUNCTION
+// =========================
+function renderUser(user) {
+
+  card.innerHTML = `
+    <img src="${user.avatar_url}" alt="">
+
+    <h3>${user.login}</h3>
+
+    <p>${user.bio || "No bio available"}</p>
+
+    <div>
       <div>
-        <div>
         <p>${user.followers}</p>
         <p>FOLLOWERS</p>
       </div>
-        <div>
+
+      <div>
         <p>${user.public_repos}</p>
         <p>REPOS</p>
       </div>
-        <div>
-        <p></p>
-        <p>TOP LANG</p>
-      </div>
-      </div>
-
-      <div>
-        <div>
-          <h3></h3>
-        </div>
-      </div>
-  `
-  })
-  .catch(err => {
-    alert('User not found')
-   console.log('User not found', err);
-  })
-  } catch (error) {
-     console.log('User not found');
-  }
-
-  const repoinfo =  fetch(`https://api.github.com/users/${username}/repos`)
-  .then(res => res.json())
-  .then((repos) => {
-    console.log(repos);
-
-    const filteredRepos =  repos.filter(repo => repo.fork )
-    const descRepo = filteredRepos.sort((a, b) => b.stargazers_count - a.stargazers_count
-)
-   const langCount = descRepo.reduce((acc, repo) => {
-    let language= repo[language];
-
-     language = (repo[language] || 0 ) + 1;
-   })
-    return descRepo && langCount ;
-  }, {} )
-
-  console.log(repoinfo);
-
-
-
-})
+    </div>
+  `;
+}
